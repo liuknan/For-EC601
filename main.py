@@ -70,9 +70,8 @@ def get_image_url(file):
                 ##print("%s" % (m['display_url']))
 def download_images(list):
     file = open('url.txt','w')
-    num = 0
+    num = 1
     for n in list:
-        num = num + 1
         nam = str(num)
         file.write(n+'\n')
         n=str(n)
@@ -86,7 +85,8 @@ def download_images(list):
         else:
 
        ## file_path=os.path.join(dir,n)
-            urllib.request.urlretrieve(n,nam+'.jpg')
+            urllib.request.urlretrieve(n,'img00'+nam+'.jpg')
+            num = num + 1
     file.close()
 
 def video_output():
@@ -94,7 +94,7 @@ def video_output():
     # out_file = 'video_out.mp4'
     # img_data= list
     # video.ins_img(input_file, img_data,out_file)
-    ctrcmd='ffmpeg -f image2 -loop 1 -y -i %d.jpg -vcodec libx264 -r 10 test.mp4'
+    ctrcmd='ffmpeg -i img%003d.jpg test.mp4'
     sp.call(ctrcmd,shell=True)
 if __name__ == '__main__':
     get_images('@FoAMortgage')
