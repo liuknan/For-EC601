@@ -5,17 +5,24 @@ import re
 import json
 import urllib.request
 import os
+import io
 import subprocess as sp
-##import random
+import google.cloud.vision
+from PIL import Image,ImageDraw,ImageFont
 same=[]
 img_list=[]
+imgnum_list=[]
+from google.cloud import videointelligence
 #Twitter API credentials
-API_key = ""
-API_secret_key = ""
-access_token = ""
-access_token_secret = ""
+
+API_key = "enter your keys"
+API_secret_key = "enter your keys"
+access_token = "enter your keys"
+access_token_secret = "enter your keys"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"]='upload your json file'
 
 def get_images(screen_name):
+    ##authorization
     auth = tweepy.OAuthHandler(API_key, API_secret_key)
     auth.set_access_token(access_token, access_token_secret)
     api=tweepy.API(auth)
@@ -51,10 +58,13 @@ def get_images(screen_name):
     file.close()
 
 def get_image_url(file):
+        ##read json, since that file is not an valid file.
         text=open(file,'r')
         for line in text.readlines():
+            ##find urls
             urltext = re.compile(r'media_url": "(.*)",')
             url=urltext.findall(line)
+            ##remove the same url
             if len(url):
                 if url[0] in same:
                     continue
@@ -69,6 +79,7 @@ def get_image_url(file):
                 ##print("%s" % (m['display_url']))
 def download_images(list):
     file = open('url.txt','w')
+    ##read file and download urls
     num = 1
     for n in list:
         nam = str(num)
@@ -85,8 +96,10 @@ def download_images(list):
         ##else:
 
        ## file_path=os.path.join(dir,n)
+        ##rename the pictures so that the ffmpeg could convert them to a video.
         urllib.request.urlretrieve(n,'img'+nam+'.jpg')
         imgnum=str(num)
+        ##number the file
         imgnum_list.insert(-1,'img'+imgnum.zfill(4)+'.jpg')
         num = num + 1
     file.close()
@@ -96,7 +109,8 @@ def video_output():
     # out_file = 'video_out.mp4'
     # img_data= list
     # video.ins_img(input_file, img_data,out_file)
-    ctrcmd='ffmpeg -i img%004d.jpg -pix_fmt yuv420p -r 25 -y test.mp4'
+    ##use command line to start the ffmpeg.
+    ctrcmd='ffmpeg -r 1/2 -i img%004d.jpg  -y test.mp4'
     sp.call(ctrcmd,shell=True)
 
 def image_detection():
@@ -117,7 +131,7 @@ def image_detection():
         response = vision_client.label_detection(image=image)
         im = Image.open(name)
         draw = ImageDraw.Draw(im)
-        font = ImageFont.truetype('/Users/liuknan/Downloads/Interface/AddOns/Skada/media/fonts/ABF.ttf',32)
+        font = ImageFont.truetype('/Library/Fonts/Trattatello.ttf',32)
         x,y=(0,0)
         print('Labels:')
         for label in response.label_annotations:
@@ -127,13 +141,85 @@ def image_detection():
             print(label.description)
         i=i+1
 
+def video_detction(path): ##https://cloud.google.com/video-intelligence/docs/libraries
+    """Detect labels given a file path."""
+    video_client = videointelligence.VideoIntelligenceServiceClient()
+    features = [videointelligence.enums.Feature.LABEL_DETECTION]
 
+    with io.open(path, 'rb') as movie:
+        input_content = movie.read()
+
+    operation = video_client.annotate_video(
+        features=features, input_content=input_content)
+    print('\nProcessing video for label annotations:')
+
+    result = operation.result(timeout=90)
+    print('\nFinished processing.')
+
+    # Process video/segment level label annotations
+    segment_labels = result.annotation_results[0].segment_label_annotations
+    for i, segment_label in enumerate(segment_labels):
+        print('Video label description: {}'.format(
+            segment_label.entity.description))
+        for category_entity in segment_label.category_entities:
+            print('\tLabel category description: {}'.format(
+                category_entity.description))
+
+        for i, segment in enumerate(segment_label.segments):
+            start_time = (segment.segment.start_time_offset.seconds +
+                          segment.segment.start_time_offset.nanos / 1e9)
+            end_time = (segment.segment.end_time_offset.seconds +
+                        segment.segment.end_time_offset.nanos / 1e9)
+            positions = '{}s to {}s'.format(start_time, end_time)
+            confidence = segment.confidence
+            print('\tSegment {}: {}'.format(i, positions))
+            print('\tConfidence: {}'.format(confidence))
+        print('\n')
+
+    # Process shot level label annotations
+    shot_labels = result.annotation_results[0].shot_label_annotations
+    for i, shot_label in enumerate(shot_labels):
+        print('Shot label description: {}'.format(
+            shot_label.entity.description))
+        for category_entity in shot_label.category_entities:
+            print('\tLabel category description: {}'.format(
+                category_entity.description))
+
+        for i, shot in enumerate(shot_label.segments):
+            start_time = (shot.segment.start_time_offset.seconds +
+                          shot.segment.start_time_offset.nanos / 1e9)
+            end_time = (shot.segment.end_time_offset.seconds +
+                        shot.segment.end_time_offset.nanos / 1e9)
+            positions = '{}s to {}s'.format(start_time, end_time)
+            confidence = shot.confidence
+            print('\tSegment {}: {}'.format(i, positions))
+            print('\tConfidence: {}'.format(confidence))
+        print('\n')
+
+    # Process frame level label annotations
+    frame_labels = result.annotation_results[0].frame_label_annotations
+    for i, frame_label in enumerate(frame_labels):
+        print('Frame label description: {}'.format(
+            frame_label.entity.description))
+        for category_entity in frame_label.category_entities:
+            print('\tLabel category description: {}'.format(
+                category_entity.description))
+
+        # Each frame_label_annotation has many frames,
+        # here we print information only about the first frame.
+        frame = frame_label.frames[0]
+        time_offset = frame.time_offset.seconds + frame.time_offset.nanos / 1e9
+        print('\tFirst frame time offset: {}s'.format(time_offset))
+        print('\tFirst frame confidence: {}'.format(frame.confidence))
+        print('\n')
 if __name__ == '__main__':
     get_images('@FoAMortgage')
     get_image_url('tweet.json')
     download_images(same)
-    video_output()
     image_detection()
+    video_output()
+    video_detction('/Users/liuknan/PycharmProjects/APIAssignment/test.mp4')
+
 ##for status in tweepy.Cursor(api.home_timeline).items(2):
 ##    print (status.txt)
 
