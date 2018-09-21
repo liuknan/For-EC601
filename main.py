@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # encoding: utf-8
 import tweepy #https://github.com/tweepy/tweepy
-import re
 import json
 import urllib.request
 import os
 import io
+import sys
 import subprocess as sp
 import google.cloud.vision
 import pandas as pd
@@ -15,13 +15,14 @@ same=[]
 img_list=[]
 imgnum_list=[]
 alltweets_json=[]
-#Twitter API credentials
 
-API_key = "enter your key"
-API_secret_key = "enter your key"
-access_token = "enter your key"
-access_token_secret = "enter your key"
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"]='enter your json file path'
+#Twitter API credentials
+API_key = "input your keys"
+API_secret_key = "input your keys"
+access_token = "input your keys"
+access_token_secret = "input your keys"
+#Google API credential
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"]='input the path of the json file'
 
 def get_images(screen_name):
     ##authorization
@@ -50,23 +51,17 @@ def get_images(screen_name):
     file = open('tweet.json', 'w')
     print("Writing tweet objects to JSON please wait...")
     for status in alltweets:
-        # alltweets_json.append(status._json)
-        # json.dump(status._json, file, sort_keys=True, indent=4)
-        #json.dump(alltweets_json,file,sort_keys=True,indent=4)
         with open('tweet.json','a+') as file:
-            # a = status._json
             json.dump(status._json,file)
             file.write('\r')
 
-    # close the file
     print("Done")
-    #file.close()
 
 def read_json():
     with open('tweet.json', 'r') as f:
         result = [json.loads(line, strict=False) for line in f]
         pp = pd.DataFrame(result)
-    print(result)
+    #print(result)
     cc = list(filter(lambda x: isinstance(x, list), pp.loc[:, 'entities'].apply(pd.Series)['media'].tolist()))
     a = [i[0]['media_url'] for i in cc if i[0]['type'] == 'photo']
     print('total:', len(cc))
@@ -78,80 +73,20 @@ def read_json():
         nam = str(num)
         nam = nam.zfill(4)
         n = str(n)
-        ##name='./'+str(random.randrange(0,1000))+'.jpg'
         name = n.replace("http://", "")
         name = name.replace("/", "_")
         img_list.insert(-1, name)
-        ##dir=os.path.abspath('.')+'/images'
-        ##if not os.path.exists(dir):
-        ##os.mkdir(dir)
-        ##else:
 
-        ## file_path=os.path.join(dir,n)
-        ##rename the pictures so that the ffmpeg could convert them to a video.
+        #rename the pictures so that the ffmpeg could convert them to a video.
         urllib.request.urlretrieve(n, 'photo/img' + nam + '.jpg')
         imgnum = str(num)
         ##number the file
         imgnum_list.insert(-1, 'photo/img' + imgnum.zfill(4) + '.jpg')
         num = num + 1
-    # for i in a:
-    #     urllib.request.urlretrieve(i, 'photo/' + i.replace("/", "_"))
-    #     print('photo/' + i.replace("/", "_"))
-
-# def get_image_url(file):
-#         ##read json, since that file is not an valid file.
-#         text=open(file,'r')
-#         for line in text.readlines():
-#             ##find urls
-#             urltext = re.compile(r'media_url": "(.*)",')
-#             url=urltext.findall(line)
-#             ##remove the same url
-#             if len(url):
-#                 if url[0] in same:
-#                     continue
-#                 else:
-#                     same.insert(-1,url[0])
-#
-#             else:
-#                 continue
-            ##line = line.replace("'", "")
-            ##images = json.loads(line)
-            ##for m in images['entities'] ['media'].values():
-                ##print("%s" % (m['display_url']))
-# def download_images(list):
-#     file = open('url.txt','w')
-#     ##read file and download urls
-#     num = 1
-#     for n in list:
-#         nam = str(num)
-#         nam=nam.zfill(4)
-#         file.write(n+'\n')
-#         n=str(n)
-#         ##name='./'+str(random.randrange(0,1000))+'.jpg'
-#         name=n.replace("http://","")
-#         name=name.replace("/","_")
-#         img_list.insert(-1,name)
-#         ##dir=os.path.abspath('.')+'/images'
-#         ##if not os.path.exists(dir):
-#             ##os.mkdir(dir)
-#         ##else:
-#
-#        ## file_path=os.path.join(dir,n)
-#         ##rename the pictures so that the ffmpeg could convert them to a video.
-#         urllib.request.urlretrieve(n,'photo/img'+nam+'.jpg')
-#         imgnum=str(num)
-#         ##number the file
-#         imgnum_list.insert(-1,'img'+imgnum.zfill(4)+'.jpg')
-#         num = num + 1
-#     file.close()
 
 def video_output():
-    # input_file = 'video.mp4'
-    # out_file = 'video_out.mp4'
-    # img_data= list
-    # video.ins_img(input_file, img_data,out_file)
-    ##use command line to start the ffmpeg.
-    ctrcmd='ffmpeg -r 1/2 -i /Users/liuknan/PycharmProjects/APIAssignment/photo/img%004d.jpg  -y newvideo.mp4'
+    #use command line to start the ffmpeg.
+    ctrcmd='ffmpeg -r 1/2 -i ./photo/img%004d.jpg  -y newvideo.mp4'
     sp.call(ctrcmd,shell=True)
 
 def image_detection():
@@ -253,17 +188,41 @@ def video_detction(path): ##https://cloud.google.com/video-intelligence/docs/lib
         print('\tFirst frame time offset: {}s'.format(time_offset))
         print('\tFirst frame confidence: {}'.format(frame.confidence))
         print('\n')
+    # restart the program
+def restart_program():
+    python = sys.executable
+    os.execl(python, python, * sys.argv)
+
+
 if __name__ == '__main__':
-    get_images('@FoAMortgage')
-    read_json()
-    # get_image_url('tweet.json')
-    # download_images()
-    image_detection()
-    video_output()
-    video_detction('/Users/liuknan/PycharmProjects/APIAssignment/test.mp4')
+    screen_name = str(input('Please input the screen name:\n if you want to exit, input exit\n'))
+    if screen_name == 'exit':
+        print('end')
+        sys.exit()
+    else:
+        try :
+            get_images(screen_name)
+        except tweepy.error.TweepError as err:
+            if err.api_code == 215:
+                print('Bad authentication data,please fill in your API Key\n')
+                sys.exit()
+            else:
+                print("The screen name is invalid!")
+                restart_program()
+        else:
+            try:
+                read_json()
+            except KeyError:
+                print("There is no images in the account you chose")
+                restart_program()
+            else:
+                try:
+                    image_detection()
+                except google.auth.exceptions.DefaultCredentialsError:
+                    print("Please upload your json file for google credential")
+                    sys.exit()
+                else:
+                    video_output()
+                    video_detction('./newvideo.mp4')
 
-##for status in tweepy.Cursor(api.home_timeline).items(2):
-##    print (status.txt)
-
-##alltweets = []
 
