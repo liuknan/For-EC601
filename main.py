@@ -7,8 +7,8 @@ import os
 import io
 import sys
 import subprocess as sp
-import google.cloud.vision
-import pandas as pd
+import google.cloud.vision #https://github.com/GoogleCloudPlatform/cloud-vision
+import pandas as pd #https://pandas.pydata.org/
 from PIL import Image,ImageDraw,ImageFont
 from google.cloud import videointelligence
 same=[]
@@ -58,17 +58,21 @@ def get_images(screen_name):
     print("Done")
 
 def read_json():
+    #read json file
     with open('tweet.json', 'r') as f:
         result = [json.loads(line, strict=False) for line in f]
         pp = pd.DataFrame(result)
     #print(result)
     cc = list(filter(lambda x: isinstance(x, list), pp.loc[:, 'entities'].apply(pd.Series)['media'].tolist()))
+    #find urls of photos
     a = [i[0]['media_url'] for i in cc if i[0]['type'] == 'photo']
     print('total:', len(cc))
     print('type is photo', len(a))
+    #creat a new directory for photos
     if not os.path.exists('photo'):
         os.mkdir('photo')
     num = 1
+    #rename photos for ffmpeg
     for n in a:
         nam = str(num)
         nam = nam.zfill(4)
@@ -108,7 +112,7 @@ def image_detection():
         im = Image.open(name)
         draw = ImageDraw.Draw(im)
         font = ImageFont.truetype('/Library/Fonts/Trattatello.ttf',32)
-        x,y=(0,0)
+        x,y=(20,0)
         print('Labels:')
         for label in response.label_annotations:
             draw.text((x,y),label.description,fill='red',font=font)
